@@ -1,0 +1,153 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Rol {
+  ADMIN
+  CAJERO
+}
+
+enum TipoComprobante {
+  FACTURA
+  BOLETA
+  NOTA_CREDITO
+  NOTA_DEBITO
+}
+
+enum EstadoSunat {
+  PENDIENTE
+  ACEPTADO
+  RECHAZADO
+  ANULADO
+}
+
+enum TipoMovimiento {
+  INGRESO
+  EGRESO
+}
+
+model Usuario {
+  id       Int      @id @default(autoincrement())
+  nombre   String
+  email    String   @unique
+  password String
+  rol      Rol      @default(CAJERO)
+  activo   Boolean  @default(true)
+  creadoEn DateTime @default(now())
+  ventas   Venta[]
+  cajas    Caja[]
+}
+
+model Categoria {
+  id        Int        @id @default(autoincrement())
+  nombre    String     @unique
+  productos Producto[]
+}
+
+model Producto {
+  id           Int            @id @default(autoincrement())
+  codigo       String         @unique
+  nombre       String
+  categoriaId  Int?
+  categoria    Categoria?     @relation(fields: [categoriaId], references: [id])
+  precioVenta  Decimal        @db.Decimal(10, 2)
+  precioCompra Decimal        @default(0) @db.Decimal(10, 2)
+  stock        Int            @default(0)
+  stockMinimo  Int            @default(0)
+  unidad       String         @default("NIU")
+  afectoIgv    Boolean        @default(true)
+  activo       Boolean        @default(true)
+  detalles     DetalleVenta[]
+}
+
+model Cliente {
+  id        Int     @id @default(autoincrement())
+  tipoDoc   String  @default("1")
+  numeroDoc String  @unique
+  nombre    String
+  direccion String?
+  email     String?
+  telefono  String?
+  ventas    Venta[]
+}
+
+model Proveedor {
+  id        Int     @id @default(autoincrement())
+  ruc       String  @unique
+  nombre    String
+  telefono  String?
+  direccion String?
+}
+
+model Caja {
+  id           Int              @id @default(autoincrement())
+  usuarioId    Int
+  usuario      Usuario          @relation(fields: [usuarioId], references: [id])
+  apertura     DateTime         @default(now())
+  cierre       DateTime?
+  montoInicial Decimal          @db.Decimal(10, 2)
+  montoFinal   Decimal?         @db.Decimal(10, 2)
+  abierta      Boolean          @default(true)
+  movimientos  MovimientoCaja[]
+  ventas       Venta[]
+}
+
+model MovimientoCaja {
+  id          Int            @id @default(autoincrement())
+  cajaId      Int
+  caja        Caja           @relation(fields: [cajaId], references: [id])
+  tipo        TipoMovimiento
+  monto       Decimal        @db.Decimal(10, 2)
+  descripcion String
+  fecha       DateTime       @default(now())
+}
+
+model Venta {
+  id          Int            @id @default(autoincrement())
+  clienteId   Int?
+  cliente     Cliente?       @relation(fields: [clienteId], references: [id])
+  usuarioId   Int
+  usuario     Usuario        @relation(fields: [usuarioId], references: [id])
+  cajaId      Int?
+  caja        Caja?          @relation(fields: [cajaId], references: [id])
+  subtotal    Decimal        @db.Decimal(10, 2)
+  igv         Decimal        @db.Decimal(10, 2)
+  total       Decimal        @db.Decimal(10, 2)
+  fecha       DateTime       @default(now())
+  detalles    DetalleVenta[]
+  comprobante Comprobante?
+}
+
+model DetalleVenta {
+  id             Int      @id @default(autoincrement())
+  ventaId        Int
+  venta          Venta    @relation(fields: [ventaId], references: [id])
+  productoId     Int
+  producto       Producto @relation(fields: [productoId], references: [id])
+  cantidad       Int
+  precioUnitario Decimal  @db.Decimal(10, 2)
+  subtotal       Decimal  @db.Decimal(10, 2)
+}
+
+model Comprobante {
+  id           Int             @id @default(autoincrement())
+  ventaId      Int             @unique
+  venta        Venta           @relation(fields: [ventaId], references: [id])
+  tipo         TipoComprobante
+  serie        String
+  numero       Int
+  estado       EstadoSunat     @default(PENDIENTE)
+  hash         String?
+  xmlPath      String?
+  cdrPath      String?
+  mensajeSunat String?
+  intentos     Int             @default(0)
+  creadoEn     DateTime        @default(now())
+
+  @@unique([serie, numero])
+}

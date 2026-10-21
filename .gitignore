@@ -1,0 +1,8 @@
+node_modules
+dist
+.env
+storage/xml/*
+storage/cdr/*
+storage/pdf/*
+!storage/**/.gitkeep
+*.pfx
